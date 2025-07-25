@@ -1,54 +1,52 @@
-# Rutas de entrada/salida
-$jsonPath = ".\eol-retirements.json"
-$csvPath = ".\avisor.csv"
-$outputPath = "..\..\output\combined_results.csv"
+# join.ps1
+# Combina los resultados de eol-retirements y advisor en un formato unificado
 
-# Cargar y procesar el JSON
-$jsonContent = Get-Content $jsonPath -Raw | ConvertFrom-Json
-$jsonData = $jsonContent.content | ForEach-Object {
-    [PSCustomObject]@{
-        RetiringFeature = $_.RetiringFeature
-        RetirementDate  = [datetime]$_.RetirementDate
-        MoreInfo        = $_.Link
+$consolidatedResults = @()
+
+# Procesar resultados de eol-retirements
+foreach ($item in $script:Retirements) {
+    $consolidatedItem = [PSCustomObject]@{
+        SubscriptionId    = $item.SubscriptionId
+        SubscriptionName  = $item.SubscriptionName
+        Type             = $item.Type
+        ResourceGroup    = $item.ResourceGroup
+        Location         = $item.Location
+        ResourceId       = $item.ResourceId
+        Tags             = $item.Tags
+        RetiringFeature  = $item.RetiringFeature
+        RetirementDate   = $item.RetirementDate
+        Source           = $item.Source
+        MoreInfo         = $item.Link  # Para eol-retirements usamos el Link
     }
+    $consolidatedResults += $consolidatedItem
 }
 
-# Cargar y procesar el CSV
-$csvData = Import-Csv $csvPath | ForEach-Object {
-    $resourceGroup = ($_."resourceId" -split "/")[4]
-    [PSCustomObject]@{
-        RetiringFeature = $_.retirementFeatureName
-        RetirementDate  = [datetime]$_.retirementDate
-        ResourceId      = $_.resourceId
-        ResourceType    = $_.resourceType
-        ResourceGroup   = $resourceGroup
-        MoreInfo        = $_.shortDescription
+# Procesar resultados de advisor
+foreach ($item in $script:AdvisorRecommendations) {
+    $consolidatedItem = [PSCustomObject]@{
+        SubscriptionId    = $item.SubscriptionId
+        SubscriptionName  = ""  # Advisor no proporciona esta información
+        Type             = $item.Type
+        ResourceGroup    = $item.ResourceGroup
+        Location         = ""  # Advisor no proporciona esta información
+        ResourceId       = $item.ResourceId
+        Tags             = ""  # Advisor no proporciona esta información
+        RetiringFeature  = $item.RetiringFeature
+        RetirementDate   = $item.RetirementDate
+        Source           = $item.Source
+        MoreInfo         = $item.MoreInfo  # Para advisor usamos el shortDescription
     }
+    $consolidatedResults += $consolidatedItem
 }
 
-# Combinar datos: unir por RetiringFeature y RetirementDate
-$combined = foreach ($item in $csvData) {
-    $match = $jsonData | Where-Object {
-        $_.RetiringFeature -eq $item.RetiringFeature -and $_.RetirementDate -eq $item.RetirementDate
-    }
+# Exportar resultados consolidados
+$outputPath = Join-Path (Split-Path -Parent $PSScriptRoot) "consolidated_results.csv"
+$consolidatedResults | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8
 
-    if ($match) {
-        # Si hay match, usar el Link del JSON como MoreInfo
-        [PSCustomObject]@{
-            RetiringFeature = $item.RetiringFeature
-            RetirementDate  = $item.RetirementDate
-            ResourceId      = $item.ResourceId
-            ResourceType    = $item.ResourceType
-            ResourceGroup   = $item.ResourceGroup
-            MoreInfo        = $match.MoreInfo
-        }
-    } else {
-        # Si no hay match, usar la descripción corta del CSV
-        $item
-    }
-}
+# Mostrar resumen
+Write-Output "Resultados consolidados:"
+Write-Output "  - Total registros: $($consolidatedResults.Count)"
+Write-Output "  - Archivo generado: $outputPath"
 
-# Ordenar y exportar
-$final = $combined | Sort-Object RetiringFeature, ResourceId -Unique
-$final | Export-Csv $outputPath -NoTypeInformation -Encoding UTF8
-Write-Host "Resultados exportados a $outputPath"
+# Mostrar vista previa
+$consolidatedResults | Select-Object -First 5 | Format-Table -AutoSize
