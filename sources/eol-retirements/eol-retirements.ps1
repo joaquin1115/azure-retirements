@@ -15,23 +15,24 @@ foreach ($sub in $subscriptions) {
     $result = Search-AzGraph -Query $queryText
 
     foreach ($row in $result) {
-        $match = $jsonData | Where-Object { $_.Id -eq [int]$row.ServiceID }
+        $match = ($jsonData | Where-Object { $_.Id -eq [int]$row.ServiceID })[0]
+
         if ($match) {
             $Retirements += [PSCustomObject]@{
-                ServiceID               = $row.ServiceID
-                SubscriptionId          = $row.subscriptionId
-                Type                    = $row.type
-                ResourceGroup           = $row.resourceGroup
-                Location                = $row.location
-                ResourceId              = $row.id
-                Tags                    = $row.tags
-                SubscriptionName        = $row.subscriptionName
-                RetiringFeature         = $match.RetiringFeature
-                RetirementDate          = $match.RetirementDate
-                RetirementService       = $match.ServiceName
-                Link                    = $match.Link
-                Source                  = "eol-retirements"
-                ShortDescription        = ""
+                ServiceID         = $row.ServiceID
+                SubscriptionId    = $row.subscriptionId
+                Type              = $row.type
+                ResourceGroup     = $row.resourceGroup
+                Location          = $row.location
+                ResourceId        = $row.id
+                Tags              = $row.tags
+                SubscriptionName  = $row.subscriptionName
+                RetiringFeature   = $match.RetiringFeature -as [string]
+                RetirementDate    = $match.RetirementDate -as [string]
+                RetirementService = $match.ServiceName -as [string]
+                Link              = $match.Link -as [string]
+                Source            = "eol-retirements"
+                ShortDescription  = ""
             }
         }
     }
@@ -39,3 +40,4 @@ foreach ($sub in $subscriptions) {
 
 # Export opcional para debug
 $Retirements | Export-Csv "$PSScriptRoot\_retirements_output.csv" -NoTypeInformation
+$Retirements | Format-Table RetiringFeature, RetirementDate, RetirementService, Link
