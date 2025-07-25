@@ -1,31 +1,54 @@
-# join.ps1
-# Une resultados de eol-retirements y advisor, eliminando duplicados
+# Rutas de entrada/salida
+$jsonPath = ".\eol-retirements.json"
+$csvPath = ".\avisor.csv"
+$outputPath = "..\..\output\combined_results.csv"
 
-if (-not ($script:Retirements -and $script:AdvisorRecommendations)) {
-    Write-Error "No se encontraron variables globales Retirements o AdvisorRecommendations."
-    return
+# Cargar y procesar el JSON
+$jsonContent = Get-Content $jsonPath -Raw | ConvertFrom-Json
+$jsonData = $jsonContent.content | ForEach-Object {
+    [PSCustomObject]@{
+        RetiringFeature = $_.RetiringFeature
+        RetirementDate  = [datetime]$_.RetirementDate
+        MoreInfo        = $_.Link
+    }
 }
 
-# Unir ambos conjuntos
-$combined = $script:Retirements + $script:AdvisorRecommendations
-
-# Agrupar por combinación RetiringFeature + ResourceId
-$grouped = $combined | Group-Object { "$($_.RetiringFeature)|$($_.ResourceId)" }
-
-# Seleccionar el registro con más campos llenos en cada grupo
-$final = foreach ($group in $grouped) {
-    $group.Group | Sort-Object {
-        ($_.RetirementService, $_.Link, $_.ShortDescription) -join ""
-    } -Descending | Select-Object -First 1
+# Cargar y procesar el CSV
+$csvData = Import-Csv $csvPath | ForEach-Object {
+    $resourceGroup = ($_."resourceId" -split "/")[4]
+    [PSCustomObject]@{
+        RetiringFeature = $_.retirementFeatureName
+        RetirementDate  = [datetime]$_.retirementDate
+        ResourceId      = $_.resourceId
+        ResourceType    = $_.resourceType
+        ResourceGroup   = $resourceGroup
+        MoreInfo        = $_.shortDescription
+    }
 }
 
-# Ruta de salida
-$outputPath = Join-Path $PSScriptRoot "..\..\output\combined_results.csv"
-$outputDir = Split-Path $outputPath
-if (-not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir | Out-Null
+# Combinar datos: unir por RetiringFeature y RetirementDate
+$combined = foreach ($item in $csvData) {
+    $match = $jsonData | Where-Object {
+        $_.RetiringFeature -eq $item.RetiringFeature -and $_.RetirementDate -eq $item.RetirementDate
+    }
+
+    if ($match) {
+        # Si hay match, usar el Link del JSON como MoreInfo
+        [PSCustomObject]@{
+            RetiringFeature = $item.RetiringFeature
+            RetirementDate  = $item.RetirementDate
+            ResourceId      = $item.ResourceId
+            ResourceType    = $item.ResourceType
+            ResourceGroup   = $item.ResourceGroup
+            MoreInfo        = $match.MoreInfo
+        }
+    } else {
+        # Si no hay match, usar la descripción corta del CSV
+        $item
+    }
 }
 
-# Exportar
+# Ordenar y exportar
+$final = $combined | Sort-Object RetiringFeature, ResourceId -Unique
 $final | Export-Csv $outputPath -NoTypeInformation -Encoding UTF8
 Write-Host "Resultados exportados a $outputPath"
