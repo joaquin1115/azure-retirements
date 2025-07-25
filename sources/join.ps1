@@ -1,5 +1,5 @@
 # join.ps1
-# Combina los resultados de eol-retirements y advisor en un formato unificado
+# Combina los resultados de eol-retirements y advisor en un formato unificado con separador ;
 
 $consolidatedResults = @()
 
@@ -39,9 +39,9 @@ foreach ($item in $script:AdvisorRecommendations) {
     $consolidatedResults += $consolidatedItem
 }
 
-# Exportar resultados consolidados
+# Exportar resultados consolidados con separador ;
 $outputPath = Join-Path (Split-Path -Parent $PSScriptRoot) "consolidated_results.csv"
-$consolidatedResults | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8
+$consolidatedResults | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8 -Delimiter ";"
 
 # Mostrar resumen
 Write-Output "Resultados consolidados:"
