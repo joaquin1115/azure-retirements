@@ -13,21 +13,23 @@ foreach ($sub in $subscriptions) {
     $result = Search-AzGraph -Query $queryText
 
     foreach ($row in $result) {
+        # Extraer el nombre del resource group desde el resourceId
+        $resourceIdParts = $row.resourceId -split '/'
+        $resourceGroup = ""
+        $rgIndex = [Array]::IndexOf($resourceIdParts, "resourceGroups")
+        if ($rgIndex -ge 0 -and ($rgIndex + 1) -lt $resourceIdParts.Length) {
+            $resourceGroup = $resourceIdParts[$rgIndex + 1]
+        }
+
         $AdvisorRecommendations += [PSCustomObject]@{
-            ServiceID               = ""
-            SubscriptionId          = ($row.resourceId -split '/')[2]
-            Type                    = ""
-            ResourceGroup           = ""
-            Location                = ""
-            ResourceId              = $row.resourceId
-            Tags                    = ""
-            SubscriptionName        = ""
-            RetiringFeature         = $row.retirementFeatureName
-            RetirementDate          = $row.retirementDate
-            RetirementService       = ""
-            Link                    = ""
-            Source                  = "advisor"
-            ShortDescription        = $row.shortDescription
+            SubscriptionId     = $resourceIdParts[2]
+            ResourceGroup      = $resourceGroup
+            ResourceId         = $row.resourceId
+            Type               = $row.resourceType
+            RetiringFeature    = $row.retirementFeatureName
+            RetirementDate     = $row.retirementDate
+            Source             = "advisor"
+            MoreInfo           = $row.shortDescription
         }
     }
 }
