@@ -4,8 +4,31 @@ advisorresources
 | where properties.extendedProperties.recommendationSubCategory == "ServiceUpgradeAndRetirement"
 | extend retirementFeatureName = properties.extendedProperties.retirementFeatureName
 | extend retirementDate = properties.extendedProperties.retirementDate
-| extend resourceId = properties.resourceMetadata.resourceId
+| extend resourceId = tostring(properties.resourceMetadata.resourceId)
 | extend shortDescription = properties.shortDescription.problem
-// To exclude upgrade recommendations that are not linked to any retirement
 | where retirementFeatureName != ''
-| project retirementFeatureName, retirementDate, resourceId, shortDescription
+| join kind=leftouter (
+    resources
+    | extend resourceId = tostring(id)
+    | project 
+        resourceId, 
+        resourceLocation = location, 
+        resourceTags = tags, 
+        resourceType = type
+) on resourceId
+| join kind=leftouter (
+    ResourceContainers 
+    | where type=='microsoft.resources/subscriptions' 
+    | project 
+        subscriptionId,
+        SubName=name
+) on subscriptionId
+| project 
+    retirementFeatureName, 
+    retirementDate, 
+    resourceId, 
+    resourceType, 
+    shortDescription, 
+    SubName, 
+    location = iff(isempty(resourceLocation), "N/A", resourceLocation),
+    tags = iff(isempty(resourceTags), "{}", tostring(resourceTags))
