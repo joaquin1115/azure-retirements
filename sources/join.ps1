@@ -2,41 +2,50 @@
 # Combina los resultados de eol-retirements y advisor en un formato unificado con separador ;
 
 $consolidatedResults = @()
+$processedItems = @{} # Hashtable para evitar duplicados
 
-# Procesar resultados de eol-retirements
+# Procesar resultados de eol-retirements primero (tienen prioridad)
 foreach ($item in $script:Retirements) {
-    $consolidatedItem = [PSCustomObject]@{
-        SubscriptionId    = $item.SubscriptionId
-        SubscriptionName  = $item.SubscriptionName
-        Type             = $item.Type
-        ResourceGroup    = $item.ResourceGroup
-        Location         = $item.Location
-        ResourceId       = $item.ResourceId
-        Tags             = $item.Tags
-        RetiringFeature  = $item.RetiringFeature
-        RetirementDate   = $item.RetirementDate
-        Source           = $item.Source
-        MoreInfo         = $item.Link  # Para eol-retirements usamos el Link
+    $key = "$($item.ResourceId.ToLower())-$($item.RetiringFeature.ToLower())"
+    if (-not $processedItems.ContainsKey($key)) {
+        $consolidatedItem = [PSCustomObject]@{
+            SubscriptionId    = $item.SubscriptionId
+            SubscriptionName  = $item.SubscriptionName
+            Type             = $item.Type
+            ResourceGroup    = $item.ResourceGroup
+            Location         = $item.Location
+            ResourceId       = $item.ResourceId
+            Tags             = $item.Tags
+            RetiringFeature  = $item.RetiringFeature
+            RetirementDate   = $item.RetirementDate
+            Source           = $item.Source
+            MoreInfo         = $item.Link
+        }
+        $consolidatedResults += $consolidatedItem
+        $processedItems[$key] = $true
     }
-    $consolidatedResults += $consolidatedItem
 }
 
-# Procesar resultados de advisor
+# Procesar resultados de advisor (solo si no existen en eol-retirements)
 foreach ($item in $script:AdvisorRecommendations) {
-    $consolidatedItem = [PSCustomObject]@{
-        SubscriptionId    = $item.SubscriptionId
-        SubscriptionName  = ""  # Advisor no proporciona esta información
-        Type             = $item.Type
-        ResourceGroup    = $item.ResourceGroup
-        Location         = ""  # Advisor no proporciona esta información
-        ResourceId       = $item.ResourceId
-        Tags             = ""  # Advisor no proporciona esta información
-        RetiringFeature  = $item.RetiringFeature
-        RetirementDate   = $item.RetirementDate
-        Source           = $item.Source
-        MoreInfo         = $item.MoreInfo  # Para advisor usamos el shortDescription
+    $key = "$($item.ResourceId.ToLower())-$($item.RetiringFeature.ToLower())"
+    if (-not $processedItems.ContainsKey($key)) {
+        $consolidatedItem = [PSCustomObject]@{
+            SubscriptionId    = $item.SubscriptionId
+            SubscriptionName  = $item.SubscriptionName
+            Type             = $item.Type
+            ResourceGroup    = $item.ResourceGroup
+            Location         = $item.Location
+            ResourceId       = $item.ResourceId
+            Tags             = $item.Tags
+            RetiringFeature  = $item.RetiringFeature
+            RetirementDate   = $item.RetirementDate
+            Source           = $item.Source
+            MoreInfo         = $item.MoreInfo
+        }
+        $consolidatedResults += $consolidatedItem
+        $processedItems[$key] = $true
     }
-    $consolidatedResults += $consolidatedItem
 }
 
 # Exportar resultados consolidados con separador ;
