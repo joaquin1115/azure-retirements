@@ -9,7 +9,7 @@ $subscriptions = Get-AzSubscription
 
 foreach ($sub in $subscriptions) {
     Set-AzContext -SubscriptionId $sub.Id | Out-Null
-
+    
     $result = Search-AzGraph -Query $queryText
 
     foreach ($row in $result) {
@@ -23,9 +23,12 @@ foreach ($sub in $subscriptions) {
 
         $AdvisorRecommendations += [PSCustomObject]@{
             SubscriptionId     = $resourceIdParts[2]
+            SubscriptionName    = $row.SubName
             ResourceGroup      = $resourceGroup
             ResourceId         = $row.resourceId
             Type               = $row.resourceType
+            Location           = $row.location
+            Tags               = $row.tags -join ';' | Out-String
             RetiringFeature    = $row.retirementFeatureName
             RetirementDate     = $row.retirementDate
             Source             = "advisor"
