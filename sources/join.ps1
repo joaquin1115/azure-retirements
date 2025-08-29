@@ -1,25 +1,45 @@
 # join.ps1
 # Combina los resultados de eol-retirements y advisor en un formato unificado con separador ;
 
+function Normalize-RetiringFeature {
+    param([string]$feature)
+
+    if ([string]::IsNullOrWhiteSpace($feature)) {
+        return ""
+    }
+
+    # Pasar a minúsculas, reemplazar " and " por coma
+    $normalized = $feature.ToLower() -replace '\s+and\s+', ','
+
+    # Separar por coma, quitar espacios y vacíos
+    $parts = $normalized -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+
+    # Ordenar y reconstruir
+    $sorted = $parts | Sort-Object
+    return ($sorted -join ",")
+}
+
 $consolidatedResults = @()
 $processedItems = @{} # Hashtable para evitar duplicados
 
 # Procesar resultados de eol-retirements primero (tienen prioridad)
 foreach ($item in $script:Retirements) {
-    $key = "$($item.ResourceId.ToLower())-$($item.RetiringFeature.ToLower())"
+    $normalizedFeature = Normalize-RetiringFeature $item.RetiringFeature
+    $key = "$($item.ResourceId.ToLower())-$normalizedFeature"
+
     if (-not $processedItems.ContainsKey($key)) {
         $consolidatedItem = [PSCustomObject]@{
             SubscriptionId    = $item.SubscriptionId
             SubscriptionName  = $item.SubscriptionName
-            Type             = $item.Type
-            ResourceGroup    = $item.ResourceGroup
-            Location         = $item.Location
-            ResourceId       = $item.ResourceId
-            Tags             = $item.Tags
-            RetiringFeature  = $item.RetiringFeature
-            RetirementDate   = $item.RetirementDate
-            Source           = $item.Source
-            MoreInfo         = $item.Link
+            Type              = $item.Type
+            ResourceGroup     = $item.ResourceGroup
+            Location          = $item.Location
+            ResourceId        = $item.ResourceId
+            Tags              = $item.Tags
+            RetiringFeature   = $item.RetiringFeature
+            RetirementDate    = $item.RetirementDate
+            Source            = $item.Source
+            MoreInfo          = $item.Link
         }
         $consolidatedResults += $consolidatedItem
         $processedItems[$key] = $true
@@ -28,20 +48,22 @@ foreach ($item in $script:Retirements) {
 
 # Procesar resultados de advisor (solo si no existen en eol-retirements)
 foreach ($item in $script:AdvisorRecommendations) {
-    $key = "$($item.ResourceId.ToLower())-$($item.RetiringFeature.ToLower())"
+    $normalizedFeature = Normalize-RetiringFeature $item.RetiringFeature
+    $key = "$($item.ResourceId.ToLower())-$normalizedFeature"
+
     if (-not $processedItems.ContainsKey($key)) {
         $consolidatedItem = [PSCustomObject]@{
             SubscriptionId    = $item.SubscriptionId
             SubscriptionName  = $item.SubscriptionName
-            Type             = $item.Type
-            ResourceGroup    = $item.ResourceGroup
-            Location         = $item.Location
-            ResourceId       = $item.ResourceId
-            Tags             = $item.Tags
-            RetiringFeature  = $item.RetiringFeature
-            RetirementDate   = $item.RetirementDate
-            Source           = $item.Source
-            MoreInfo         = $item.MoreInfo
+            Type              = $item.Type
+            ResourceGroup     = $item.ResourceGroup
+            Location          = $item.Location
+            ResourceId        = $item.ResourceId
+            Tags              = $item.Tags
+            RetiringFeature   = $item.RetiringFeature
+            RetirementDate    = $item.RetirementDate
+            Source            = $item.Source
+            MoreInfo          = $item.MoreInfo
         }
         $consolidatedResults += $consolidatedItem
         $processedItems[$key] = $true
