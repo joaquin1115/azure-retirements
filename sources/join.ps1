@@ -8,11 +8,14 @@ function Normalize-RetiringFeature {
         return ""
     }
 
-    # Pasar a minúsculas, reemplazar " and " por coma
-    $normalized = $feature.ToLower() -replace '\s+and\s+', ','
+    # Pasar a minúsculas
+    $normalized = $feature.ToLower()
 
-    # Separar por coma, quitar espacios y vacíos
-    $parts = $normalized -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    # Reemplazar " and " por espacio (para tratarlo como separador)
+    $normalized = $normalized -replace '\s+and\s+', ' '
+
+    # Separar por comas y espacios, quitar vacíos
+    $parts = $normalized -split '[,\s]+' | Where-Object { $_ -ne "" }
 
     # Ordenar y reconstruir
     $sorted = $parts | Sort-Object
